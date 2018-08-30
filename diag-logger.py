@@ -643,15 +643,16 @@ def handle_diag_log_message(message,timestamp):
         	result["ota_pdu"] =  message.ota_pdu
         	result["ota_version"] =  message.ota_version
             
-        
+        result["raw"] = hexlify(payload)
+
 
     else:
     	payload = message[DiagCommand].load
     	result["msg_protocol"] =  message.msg_protocol
-
-    result["raw"] = hexlify(payload)
-
-    print json.dumps(result, separators=(',',':'))
+    	result["raw"] = hexlify(payload)
+    
+    print result
+    print "\n"
     sys.stdout.flush()
 
 
