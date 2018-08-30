@@ -437,6 +437,17 @@ LTE_Message_Type = {
     "System-Information-Block-Type1-Message" : 0xC,
 }
 
+LTE_Message_Type_v9 = {
+    "BCCH-DL-SCH-Message": 9,
+    "MCCH-Message" : 10, 
+    "PCCH-Message": 11,
+    "DL-CCCH-Message" : 12,
+    "DL-DCCH-Message" : 13,
+    "UL-CCCH-Message" : 14,
+    "UL-DCCH-Message" : 15,
+    "UE-EUTRA-Capability-Message" : 16,
+}
+
 class LTEOTAMessage(Packet):
     name = "LTE OTA"
     fields_desc = [
@@ -446,12 +457,12 @@ class LTEOTAMessage(Packet):
         ByteField("ota_radio_bearer_id",0),
         LEShortField("ota_pci",0),
         LEShortField("ota_earfcn",0),
+        ConditionalField(LEShortField("ota_unknown2",0),lambda pkt:pkt.ota_version==9), 
         LEShortField("ota_subframenumber",0),
-        #ConditionalField(ByteField("ota_unknown2",0),lambda pkt:pkt.ota_version==9), # most likely, the OTA message are changing with each release
-        #ConditionalField(ByteField("ota_unknown3",0),lambda pkt:pkt.ota_version==9), 
-        ByteEnumField("ota_pdu",0,LTE_Message_Type),
-        LEIntField("ota_encoded_msg_len",0),
-        LEShortField("ota_unknown",0)
+        ConditionalField(ByteEnumField("ota_pdu",0,LTE_Message_Type),lambda pkt:pkt.ota_version==7), 
+        ConditionalField(ByteEnumField("ota_pdu",0,LTE_Message_Type_v9),lambda pkt:pkt.ota_version==9), 
+        LEIntField("ota_unknown",0),
+        LEShortField("ota_encoded_msg_len",0)
     ]
 
 bind_layers(DiagCommand,LTEOTAMessage, msg_protocol=MsgProtocol["LTE-OTA-MESSAGE"])
@@ -536,6 +547,7 @@ LTE_PCCH = GLOBAL.MOD['EUTRA-RRC-Definitions']['PCCH-Message']
 LTE_BCCH_BCH = GLOBAL.MOD['EUTRA-RRC-Definitions']['BCCH-BCH-Message']
 LTE_BCCH_DL_SCH = GLOBAL.MOD['EUTRA-RRC-Definitions']['BCCH-DL-SCH-Message']
 LTE_DL_DCCH = GLOBAL.MOD['EUTRA-RRC-Definitions']['DL-DCCH-Message']
+LTE_UL_DCCH = GLOBAL.MOD['EUTRA-RRC-Definitions']['UL-DCCH-Message']
 LTE_DL_CCCH = GLOBAL.MOD['EUTRA-RRC-Definitions']['DL-CCCH-Message']
 LTE_UL_CCCH = GLOBAL.MOD['EUTRA-RRC-Definitions']['UL-CCCH-Message']
 
@@ -543,8 +555,8 @@ print "Diag-Logger, DIAG Protocol Python Logger (c) Yan Grunenberger, 2018"
 
 try:
 	## here adapt the vendor and product ID to your device
-	dev = QCDMDevice(vid="1004", pid="61f1", iface=2) # Nexus 5
-	#dev = QCDMDevice(vid="05c6", pid="903d", iface=0) # Nexus 5x
+	#dev = QCDMDevice(vid="1004", pid="61f1", iface=2) # Nexus 5
+	dev = QCDMDevice(vid="05c6", pid="903d", iface=0) # Nexus 5x
 
 except USBException as e:
     print "Error : Target USB device not found !"
@@ -556,7 +568,7 @@ signal.signal(signal.SIGINT, signal_handler)
 frame = dev.receive_response() # this will eventually timeout
 
 if QCDMFrame not in frame:
-    print "Configuring diag port..."
+    print "Device responsing to DIAG protocol..."
 
     if dev.is_alive():
 
@@ -573,26 +585,42 @@ def handle_diag_log_message(message,timestamp):
     if LTEMIBMessage in message:
     	print timestamp, "PCI",message.mib_pci,"EARFCN",message.mib_earfcn, "MasterInformationBlock"
     elif LTEOTAMessage in message:
-    	#print "Cellular network RRC version", message.ota_version, "Release", message.ota_rrc_release, "version", message.ota_rrc_version
+
     	payload = message[Raw].load[0:None:None]
 
-    	if message.ota_pdu == LTE_Message_Type["DL-DCCH-Message"]:
-    		LTE_DL_DCCH.from_uper(payload)
-    		print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "DL-DCCH-Message", LTE_DL_DCCH() , hexlify(payload)
-    	elif message.ota_pdu == LTE_Message_Type["DL-CCCH-Message"]:
-    		LTE_DL_CCCH.from_uper(payload)
-    		print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "DL-CCCH-Message", LTE_DL_CCCH() , hexlify(payload)
-    	elif message.ota_pdu == LTE_Message_Type["UL-CCCH-Message"]:
-    		LTE_UL_CCCH.from_uper(payload)
-    		print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "UL-CCCH-Message", LTE_UL_CCCH() , hexlify(payload)
-    	elif message.ota_pdu == LTE_Message_Type["PCCH-Message"]:
-    		LTE_PCCH.from_uper(payload)
-    		print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "PCCH-Message",LTE_PCCH() , hexlify(payload)
-    	elif message.ota_pdu == LTE_Message_Type["BCCH-DL-SCH-Message"]:
-    		LTE_BCCH_DL_SCH.from_uper(payload)
-    		print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "BCCH-DL-SCH-Message", LTE_BCCH_DL_SCH(), hexlify(payload)
+
+        if message.ota_version == 7:
+        	lte_message_type = LTE_Message_Type
+            
+           
+        elif message.ota_version == 9: 
+            lte_message_type = LTE_Message_Type_v9
+
         else:
-    		print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "UNKNOWN PDU TYPE", message.ota_pdu , "UNKNOWN", hexlify(message[Raw].load[0:None:None])
+            print "Unknown QC OTA protocol version", hexlify(str(message[Raw]))
+            return
+
+        if message.ota_pdu == lte_message_type["DL-DCCH-Message"]:
+            LTE_DL_DCCH.from_uper(payload)
+            print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "DL-DCCH-Message", LTE_DL_DCCH() , hexlify(payload)
+        elif message.ota_pdu == lte_message_type["UL-DCCH-Message"]:
+            LTE_UL_DCCH.from_uper(payload)
+            print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "UL-DCCH-Message", LTE_UL_DCCH() , hexlify(payload)
+        elif message.ota_pdu == lte_message_type["DL-CCCH-Message"]:
+            LTE_DL_CCCH.from_uper(payload)
+            print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "DL-CCCH-Message", LTE_DL_CCCH() , hexlify(payload)
+        elif message.ota_pdu == lte_message_type["UL-CCCH-Message"]:
+            LTE_UL_CCCH.from_uper(payload)
+            print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "UL-CCCH-Message", LTE_UL_CCCH() , hexlify(payload)
+        elif message.ota_pdu == lte_message_type["PCCH-Message"]:
+            LTE_PCCH.from_uper(payload)
+            print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "PCCH-Message", LTE_PCCH() , hexlify(payload)
+        elif message.ota_pdu == lte_message_type["BCCH-DL-SCH-Message"]:
+            LTE_BCCH_DL_SCH.from_uper(payload)
+            print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "BCCH-DL-SCH-Message", LTE_BCCH_DL_SCH(), hexlify(payload)
+        else:
+            print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "UNKNOWN PDU TYPE", message.ota_pdu , "UNKNOWN", hexlify(str(message[LTEOTAMessage]))
+
 
 while True:
     frame = dev.receive_response()
