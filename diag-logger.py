@@ -12,6 +12,7 @@ import usb.control
 import sys
 import time
 import signal
+import json
 
 from scapy.fields import *
 from scapy.packet import Packet, Raw, bind_layers
@@ -584,11 +585,20 @@ if QCDMFrame not in frame:
 ## http://www.3gpp-message-analyser.com/decoder/eurrc.htm
 ## or https://www.marben-products.com/decoder-asn1-lte/
 def handle_diag_log_message(message,timestamp):
+
+    result = {"timestamp" : timestamp}
+
     if LTEMIBMessage in message:
-    	print timestamp, "PCI",message.mib_pci,"EARFCN",message.mib_earfcn, "MasterInformationBlock"
+    	result["pci"] = message.mib_pci
+    	result["earfcn"] = message.mib_earfcn
+    	result["type"] = "MasterInformationBlock"
+
     elif LTEOTAMessage in message:
     	
     	payload = message[Raw].load[0:None:None]
+    	
+    	result["rrc_version"] = message.ota_rrc_version
+    	result["rrc_release"] = message.ota_rrc_release
 
         if message.ota_version == 7:
         	lte_message_type = LTE_Message_Type
@@ -597,33 +607,52 @@ def handle_diag_log_message(message,timestamp):
             lte_message_type = LTE_Message_Type_v9
             ota_pdu = message.ota_pdu_v9
         else:
-            print "Unknown QC OTA protocol version", hexlify(str(message[Raw]))
+            #print "Unknown QC OTA protocol version", hexlify(str(message[Raw]))
             return
+
+        
+        result["pci"] = message.ota_pci
+    	result["earfcn"] = message.ota_earfcn
+
 
         if ota_pdu == lte_message_type["DL-DCCH-Message"]:
             LTE_DL_DCCH.from_uper(payload)
-            print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "DL-DCCH-Message", LTE_DL_DCCH() , hexlify(payload)
+            result["type"] = "DL-DCCH-Message"
+            result["message"] = LTE_DL_DCCH()["message"]
         elif ota_pdu == lte_message_type["UL-DCCH-Message"]:
             LTE_UL_DCCH.from_uper(payload)
-            print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "UL-DCCH-Message", LTE_UL_DCCH() , hexlify(payload)
+            result["type"] = "UL-DCCH-Message"
+            result["message"] = LTE_UL_DCCH()["message"]
         elif ota_pdu == lte_message_type["DL-CCCH-Message"]:
             LTE_DL_CCCH.from_uper(payload)
-            print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "DL-CCCH-Message", LTE_DL_CCCH() , hexlify(payload)
+            result["type"] = "DL-CCCH-Message"
+            result["message"] = LTE_DL_CCCH()["message"]
         elif ota_pdu == lte_message_type["UL-CCCH-Message"]:
             LTE_UL_CCCH.from_uper(payload)
-            print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "UL-CCCH-Message", LTE_UL_CCCH() , hexlify(payload)
+            result["type"] = "UL-CCCH-Message"
+            result["message"] = LTE_UL_CCCH()["message"]
         elif ota_pdu == lte_message_type["PCCH-Message"]:
             LTE_PCCH.from_uper(payload)
-            print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "PCCH-Message", LTE_PCCH() , hexlify(payload)
+            result["type"] = "PCCH-Message"
+            result["message"] = LTE_PCCH()["message"]
         elif ota_pdu == lte_message_type["BCCH-DL-SCH-Message"]:
             LTE_BCCH_DL_SCH.from_uper(payload)
-            print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "BCCH-DL-SCH-Message", LTE_BCCH_DL_SCH(), hexlify(payload)
+            result["type"] = "BCCH-DL-SCH-Message"
+            result["message"] = LTE_BCCH_DL_SCH()["message"]
         else:
-            print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "UNKNOWN PDU TYPE", message.ota_pdu , "UNKNOWN", hexlify(str(message[LTEOTAMessage]))
+        	result["ota_pdu"] =  message.ota_pdu
+        	result["ota_version"] =  message.ota_version
+            
+        
 
     else:
-    	payload = message[DiagCommand]
-    	print timestamp, "Diag protocol" , message.msg_protocol, hexlify(str(payload))
+    	payload = message[DiagCommand].load
+    	result["msg_protocol"] =  message.msg_protocol
+
+    result["raw"] = hexlify(payload)
+
+    print json.dumps(result, separators=(',',':'))
+    sys.stdout.flush()
 
 
 while True:
