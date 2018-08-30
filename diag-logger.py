@@ -413,6 +413,8 @@ bind_layers(QCDMFrame, Command)
 MsgProtocol = {
     "LTE-OTA-MESSAGE":  int("0xb0c0",0),
     "LTE-MIB-MESSAGE": int("0xb0c1",0),
+    "LTE-SERVING-CELL-INFO": int("0xb0c2",0),
+    "LTE_NAS_EMM_PLAIN_OTA_OUTGOING_MSG": int("0xb0ed",0), # 45293
 }
 
 class DiagCommand(Packet):
@@ -459,10 +461,10 @@ class LTEOTAMessage(Packet):
         LEShortField("ota_earfcn",0),
         ConditionalField(LEShortField("ota_unknown2",0),lambda pkt:pkt.ota_version==9), 
         LEShortField("ota_subframenumber",0),
-        ConditionalField(ByteEnumField("ota_pdu",0,LTE_Message_Type),lambda pkt:pkt.ota_version==7), 
-        ConditionalField(ByteEnumField("ota_pdu",0,LTE_Message_Type_v9),lambda pkt:pkt.ota_version==9), 
+        ConditionalField(ByteEnumField("ota_pdu",0,LTE_Message_Type),lambda pkt:pkt.ota_version==7),
+        ConditionalField(ByteEnumField("ota_pdu_v9",0,LTE_Message_Type_v9),lambda pkt:pkt.ota_version==9), 
         LEIntField("ota_unknown",0),
-        LEShortField("ota_encoded_msg_len",0)
+        LEShortField("ota_encoded_msg_len",0),
     ]
 
 bind_layers(DiagCommand,LTEOTAMessage, msg_protocol=MsgProtocol["LTE-OTA-MESSAGE"])
@@ -585,41 +587,43 @@ def handle_diag_log_message(message,timestamp):
     if LTEMIBMessage in message:
     	print timestamp, "PCI",message.mib_pci,"EARFCN",message.mib_earfcn, "MasterInformationBlock"
     elif LTEOTAMessage in message:
-
+    	
     	payload = message[Raw].load[0:None:None]
-
 
         if message.ota_version == 7:
         	lte_message_type = LTE_Message_Type
-            
-           
+        	ota_pdu = message.ota_pdu
         elif message.ota_version == 9: 
             lte_message_type = LTE_Message_Type_v9
-
+            ota_pdu = message.ota_pdu_v9
         else:
             print "Unknown QC OTA protocol version", hexlify(str(message[Raw]))
             return
 
-        if message.ota_pdu == lte_message_type["DL-DCCH-Message"]:
+        if ota_pdu == lte_message_type["DL-DCCH-Message"]:
             LTE_DL_DCCH.from_uper(payload)
             print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "DL-DCCH-Message", LTE_DL_DCCH() , hexlify(payload)
-        elif message.ota_pdu == lte_message_type["UL-DCCH-Message"]:
+        elif ota_pdu == lte_message_type["UL-DCCH-Message"]:
             LTE_UL_DCCH.from_uper(payload)
             print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "UL-DCCH-Message", LTE_UL_DCCH() , hexlify(payload)
-        elif message.ota_pdu == lte_message_type["DL-CCCH-Message"]:
+        elif ota_pdu == lte_message_type["DL-CCCH-Message"]:
             LTE_DL_CCCH.from_uper(payload)
             print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "DL-CCCH-Message", LTE_DL_CCCH() , hexlify(payload)
-        elif message.ota_pdu == lte_message_type["UL-CCCH-Message"]:
+        elif ota_pdu == lte_message_type["UL-CCCH-Message"]:
             LTE_UL_CCCH.from_uper(payload)
             print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "UL-CCCH-Message", LTE_UL_CCCH() , hexlify(payload)
-        elif message.ota_pdu == lte_message_type["PCCH-Message"]:
+        elif ota_pdu == lte_message_type["PCCH-Message"]:
             LTE_PCCH.from_uper(payload)
             print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "PCCH-Message", LTE_PCCH() , hexlify(payload)
-        elif message.ota_pdu == lte_message_type["BCCH-DL-SCH-Message"]:
+        elif ota_pdu == lte_message_type["BCCH-DL-SCH-Message"]:
             LTE_BCCH_DL_SCH.from_uper(payload)
             print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "BCCH-DL-SCH-Message", LTE_BCCH_DL_SCH(), hexlify(payload)
         else:
             print timestamp, "PCI",message.ota_pci,"EARFCN",message.ota_earfcn, "UNKNOWN PDU TYPE", message.ota_pdu , "UNKNOWN", hexlify(str(message[LTEOTAMessage]))
+
+    else:
+    	payload = message[DiagCommand]
+    	print timestamp, "Diag protocol" , message.msg_protocol, hexlify(str(payload))
 
 
 while True:
