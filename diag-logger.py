@@ -557,8 +557,8 @@ print "Diag-Logger, DIAG Protocol Python Logger (c) Yan Grunenberger, 2018"
 
 try:
 	## here adapt the vendor and product ID to your device
-	#dev = QCDMDevice(vid="1004", pid="61f1", iface=2) # Nexus 5
-	dev = QCDMDevice(vid="05c6", pid="903d", iface=0) # Nexus 5x
+	dev = QCDMDevice(vid="1004", pid="61f1", iface=2) # Nexus 5
+	#dev = QCDMDevice(vid="05c6", pid="903d", iface=0) # Nexus 5x
 
 except USBException as e:
     print "Error : Target USB device not found !"
@@ -570,7 +570,7 @@ signal.signal(signal.SIGINT, signal_handler)
 frame = dev.receive_response() # this will eventually timeout
 
 if QCDMFrame not in frame:
-    print "Device responsing to DIAG protocol..."
+    print "Device responding to DIAG protocol..."
 
     if dev.is_alive():
 
