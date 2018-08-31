@@ -49,6 +49,7 @@ The script is requiring a couple of python dependencies. Typically :
 ```
 pip install pyusb
 pip install scapy
+git clone https://github.com/mitshell/CryptoMobile && cd CryptoMobile && python setup.py install
 git clone https://github.com/ANSSI-FR/pycrate.git && cd pycrate && python setup.py install
 ```
 
