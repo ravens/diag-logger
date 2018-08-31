@@ -97,7 +97,6 @@ bytearray([ 0x73,  0x00,  0x00,  0x00,  0x03,  0x00,  0x00,  0x00,  0x01,  0x00,
 
 # a signal handler to intercept CTRL+C and disable the monitoring mode 
 def signal_handler(sig, frame):
-        print('Exiting...')
         for cmd in disables_diag_log_cmds:
             query = QCDMFrame()/Raw(load=cmd)
             dev.send(query)
@@ -105,6 +104,18 @@ def signal_handler(sig, frame):
             response = dev.receive_response()
 
         sys.exit(0)
+
+def print_uncaught_exception(exception_type, exception, tb):
+	print json.dumps({"timestamp" : time.time() , "type":"exception"})
+
+sys.excepthook = print_uncaught_exception
+
+def print_output(content):
+    try:
+        print json.dumps(content)
+        sys.stdout.flush()
+    except Exception as e:
+    	print json.dumps({"timestamp" : time.time() , "type":"exception"})
 
 ## some USB bulk device class from USBFuzz project (https://github.com/ollseg/usb-device-fuzzing)
 ## Exceptions, USBDevice, BulkDevice
@@ -554,7 +565,7 @@ LTE_UL_DCCH = GLOBAL.MOD['EUTRA-RRC-Definitions']['UL-DCCH-Message']
 LTE_DL_CCCH = GLOBAL.MOD['EUTRA-RRC-Definitions']['DL-CCCH-Message']
 LTE_UL_CCCH = GLOBAL.MOD['EUTRA-RRC-Definitions']['UL-CCCH-Message']
 
-print "Diag-Logger, DIAG Protocol Python Logger (c) Yan Grunenberger, 2018"
+print_output({"timestamp" : time.time() , "type":"debug", "message" : "Diag-Logger, DIAG Protocol Python Logger (c) Yan Grunenberger, 2018"})
 
 try:
 	## here adapt the vendor and product ID to your device
@@ -571,7 +582,7 @@ signal.signal(signal.SIGINT, signal_handler)
 frame = dev.receive_response() # this will eventually timeout
 
 if QCDMFrame not in frame:
-    print "Device responding to DIAG protocol..."
+    #print "Device responding to DIAG protocol..."
 
     if dev.is_alive():
 
@@ -651,9 +662,8 @@ def handle_diag_log_message(message,timestamp):
     	result["msg_protocol"] =  message.msg_protocol
     	result["raw"] = hexlify(payload)
     
-    print result
-    print "\n"
-    sys.stdout.flush()
+    print_output(result)
+      
 
 
 while True:
@@ -665,4 +675,6 @@ while True:
             if DiagCommand in frame:
                 handle_diag_log_message(frame,timestamp)
         else:
-            print time.time(), frame.code, dev.hex_dump(str(frame))
+            result = {"timestamp" : timestamp}
+            result["raw_frame"] = hexlify(frame)
+            print_output(result)
