@@ -112,7 +112,7 @@ sys.excepthook = print_uncaught_exception
 
 def print_output(content):
     try:
-        print json.dumps(content)
+        print json.dumps(content,encoding='latin1') # avoid UTF-8 encoding error
         sys.stdout.flush()
     except Exception as exception:
     	print json.dumps({"timestamp" : time.time() , "type":"exception","message":str(exception)})
@@ -426,7 +426,8 @@ MsgProtocol = {
     "LTE-OTA-MESSAGE":  int("0xb0c0",0),
     "LTE-MIB-MESSAGE": int("0xb0c1",0),
     "LTE-SERVING-CELL-INFO": int("0xb0c2",0),
-    "LTE_NAS_EMM_PLAIN_OTA_OUTGOING_MSG": int("0xb0ed",0), # 45293
+    "LTE-NAS-INCOMING-MESSAGE": int("0xb0ec",0),
+    "LTE-NAS-OUTGOING-MESSAGE": int("0xb0ed",0),
 }
 
 class DiagCommand(Packet):
@@ -463,7 +464,7 @@ LTE_Message_Type_v9 = {
 }
 
 class LTEOTAMessage(Packet):
-    name = "LTE OTA"
+    name = "LTE-OTA"
     fields_desc = [
         ByteField("ota_version",0),
         ByteField("ota_rrc_release",0),
@@ -493,6 +494,28 @@ class LTEMIBMessage(Packet):
 
 bind_layers(DiagCommand,LTEMIBMessage, msg_protocol=MsgProtocol["LTE-MIB-MESSAGE"])
 
+class LTENASMessageIncoming(Packet):
+    name = "LTE-NAS-Incoming"
+    fields_desc = [
+        ByteField("log_version",0),
+        ByteField("std_version",0),
+        ByteField("std_version_major",0),
+        ByteField("std_version_minor",0)
+    ]
+
+bind_layers(DiagCommand,LTENASMessageIncoming, msg_protocol=MsgProtocol["LTE-NAS-INCOMING-MESSAGE"])
+
+
+class LTENASMessageOutgoing(Packet):
+    name = "LTE-NAS-Outgoing"
+    fields_desc = [
+        ByteField("log_version",0),
+        ByteField("std_version",0),
+        ByteField("std_version_major",0),
+        ByteField("std_version_minor",0)
+    ]
+
+bind_layers(DiagCommand,LTENASMessageOutgoing, msg_protocol=MsgProtocol["LTE-NAS-OUTGOING-MESSAGE"])
 
 class QCDMDevice(BulkPipe):
 
@@ -565,12 +588,14 @@ LTE_UL_DCCH = GLOBAL.MOD['EUTRA-RRC-Definitions']['UL-DCCH-Message']
 LTE_DL_CCCH = GLOBAL.MOD['EUTRA-RRC-Definitions']['DL-CCCH-Message']
 LTE_UL_CCCH = GLOBAL.MOD['EUTRA-RRC-Definitions']['UL-CCCH-Message']
 
+from pycrate_mobile import NASLTE
+
 print_output({"timestamp" : time.time() , "type":"debug", "message" : "Diag-Logger, DIAG Protocol Python Logger (c) Yan Grunenberger, 2018"})
 
 try:
 	## here adapt the vendor and product ID to your device
-	dev = QCDMDevice(vid="1004", pid="61f1", iface=2) # Nexus 5
-	#dev = QCDMDevice(vid="05c6", pid="903d", iface=0) # Nexus 5x
+	#dev = QCDMDevice(vid="1004", pid="61f1", iface=2) # Nexus 5
+	dev = QCDMDevice(vid="05c6", pid="903d", iface=0) # Nexus 5x
 
 except USBException as e:
     print "Error : Target USB device not found !"
@@ -656,11 +681,28 @@ def handle_diag_log_message(message,timestamp):
             
         result["raw"] = hexlify(payload)
 
+    elif LTENASMessageOutgoing in message:
+    	payload = message[Raw].load[0:None:None]
+    	result["raw"] = hexlify(payload)
+    	result["nas_log_version"] = message.log_version
+    	result["type"] = "LTE-NAS-Outgoing"
+    	#m,e = NASLTE.parse_NASLTE_MO(payload)
+    	#result["message"] = m
+
+
+    elif LTENASMessageIncoming in message:
+    	payload = message[Raw].load[0:None:None]
+    	result["raw"] = hexlify(payload)
+    	result["nas_log_version"] = message.log_version
+    	result["type"] = "LTE-NAS-incoming" 
+    	#m,e = NASLTE.parse_NASLTE_MT(payload)
+    	#result["message"] = m
 
     else:
     	payload = message[DiagCommand].load
     	result["msg_protocol"] =  message.msg_protocol
     	result["raw"] = hexlify(payload)
+
     
     print_output(result)
       
