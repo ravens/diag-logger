@@ -106,7 +106,7 @@ def signal_handler(sig, frame):
         sys.exit(0)
 
 def print_uncaught_exception(exception_type, exception, tb):
-	print json.dumps({"timestamp" : time.time() , "type":"exception"})
+	print json.dumps({"timestamp" : time.time() , "type":"exception","message":str(exception)})
 
 sys.excepthook = print_uncaught_exception
 
@@ -114,8 +114,8 @@ def print_output(content):
     try:
         print json.dumps(content)
         sys.stdout.flush()
-    except Exception as e:
-    	print json.dumps({"timestamp" : time.time() , "type":"exception"})
+    except Exception as exception:
+    	print json.dumps({"timestamp" : time.time() , "type":"exception","message":str(exception)})
 
 ## some USB bulk device class from USBFuzz project (https://github.com/ollseg/usb-device-fuzzing)
 ## Exceptions, USBDevice, BulkDevice
