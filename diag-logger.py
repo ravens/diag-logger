@@ -426,7 +426,6 @@ MsgProtocol = {
     "LTE-OTA-MESSAGE":  int("0xb0c0",0),
     "LTE-MIB-MESSAGE": int("0xb0c1",0),
     "LTE-SERVING-CELL-INFO": int("0xb0c2",0),
-    "LTE-NAS-INCOMING-MESSAGE": int("0xb0ec",0),
     "LTE-NAS-OUTGOING-MESSAGE": int("0xb0ed",0),
 }
 
@@ -494,25 +493,26 @@ class LTEMIBMessage(Packet):
 
 bind_layers(DiagCommand,LTEMIBMessage, msg_protocol=MsgProtocol["LTE-MIB-MESSAGE"])
 
-class LTENASMessageIncoming(Packet):
-    name = "LTE-NAS-Incoming"
-    fields_desc = [
-        ByteField("log_version",0),
-        ByteField("std_version",0),
-        ByteField("std_version_major",0),
-        ByteField("std_version_minor",0)
-    ]
 
-bind_layers(DiagCommand,LTENASMessageIncoming, msg_protocol=MsgProtocol["LTE-NAS-INCOMING-MESSAGE"])
-
+NAS_Outgoing_Message_Type = {
+    "Detach-Request": 69,
+    "Attach-Accept" : 66,
+    "Attach-Complete" : 67,
+}
 
 class LTENASMessageOutgoing(Packet):
     name = "LTE-NAS-Outgoing"
     fields_desc = [
         ByteField("log_version",0),
-        ByteField("std_version",0),
-        ByteField("std_version_major",0),
-        ByteField("std_version_minor",0)
+        ByteField("nas_version",0),
+        ByteField("nas_version_major",0),
+        ByteField("nas_version_minor",0),
+        ByteField("nas_protocol",0),
+        ByteEnumField("nas_msg_id",0,NAS_Outgoing_Message_Type),
+        LEIntField("nas_unknown",0),
+        LEShortField("nas_unknown2",0),
+        ByteField("nas_secure_header",0),
+        ByteField("nas_direction",0),
     ]
 
 bind_layers(DiagCommand,LTENASMessageOutgoing, msg_protocol=MsgProtocol["LTE-NAS-OUTGOING-MESSAGE"])
@@ -588,7 +588,7 @@ LTE_UL_DCCH = GLOBAL.MOD['EUTRA-RRC-Definitions']['UL-DCCH-Message']
 LTE_DL_CCCH = GLOBAL.MOD['EUTRA-RRC-Definitions']['DL-CCCH-Message']
 LTE_UL_CCCH = GLOBAL.MOD['EUTRA-RRC-Definitions']['UL-CCCH-Message']
 
-from pycrate_mobile import NASLTE
+from pycrate_mobile import NAS
 
 print_output({"timestamp" : time.time() , "type":"debug", "message" : "Diag-Logger, DIAG Protocol Python Logger (c) Yan Grunenberger, 2018"})
 
@@ -631,7 +631,7 @@ def handle_diag_log_message(message,timestamp):
 
     elif LTEOTAMessage in message:
     	
-    	payload = message[Raw].load[0:None:None]
+    	
     	
     	result["rrc_version"] = message.ota_rrc_version
     	result["rrc_release"] = message.ota_rrc_release
@@ -649,7 +649,9 @@ def handle_diag_log_message(message,timestamp):
         
         result["pci"] = message.ota_pci
     	result["earfcn"] = message.ota_earfcn
+    	result["length"] = message.ota_encoded_msg_len
 
+    	payload = message[Raw].load[0:message.ota_encoded_msg_len:None]
 
         if ota_pdu == lte_message_type["DL-DCCH-Message"]:
             LTE_DL_DCCH.from_uper(payload)
@@ -685,18 +687,15 @@ def handle_diag_log_message(message,timestamp):
     	payload = message[Raw].load[0:None:None]
     	result["raw"] = hexlify(payload)
     	result["nas_log_version"] = message.log_version
+    	result["nas_version"] = message.nas_version
+    	result["nas_major"] = message.nas_version_major
+    	result["nas_minor"] = message.nas_version_minor
+    	result["nas_protocol"] = message.nas_protocol
+    	result["nas_direction"] = message.nas_direction
     	result["type"] = "LTE-NAS-Outgoing"
-    	#m,e = NASLTE.parse_NASLTE_MO(payload)
-    	#result["message"] = m
+    	#m,e = NAS.parse_NAS_MO(payload)
+    	#print m
 
-
-    elif LTENASMessageIncoming in message:
-    	payload = message[Raw].load[0:None:None]
-    	result["raw"] = hexlify(payload)
-    	result["nas_log_version"] = message.log_version
-    	result["type"] = "LTE-NAS-incoming" 
-    	#m,e = NASLTE.parse_NASLTE_MT(payload)
-    	#result["message"] = m
 
     else:
     	payload = message[DiagCommand].load
