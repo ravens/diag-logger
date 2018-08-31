@@ -507,12 +507,6 @@ class LTENASMessageOutgoing(Packet):
         ByteField("nas_version",0),
         ByteField("nas_version_major",0),
         ByteField("nas_version_minor",0),
-        ByteField("nas_protocol",0),
-        ByteEnumField("nas_msg_id",0,NAS_Outgoing_Message_Type),
-        LEIntField("nas_unknown",0),
-        LEShortField("nas_unknown2",0),
-        ByteField("nas_secure_header",0),
-        ByteField("nas_direction",0),
     ]
 
 bind_layers(DiagCommand,LTENASMessageOutgoing, msg_protocol=MsgProtocol["LTE-NAS-OUTGOING-MESSAGE"])
@@ -623,6 +617,7 @@ if QCDMFrame not in frame:
 def handle_diag_log_message(message,timestamp):
 
     result = {"timestamp" : timestamp}
+    result = {"diag_length" : message.inner_len}
 
     if LTEMIBMessage in message:
     	result["pci"] = message.mib_pci
@@ -684,18 +679,17 @@ def handle_diag_log_message(message,timestamp):
         result["raw"] = hexlify(payload)
 
     elif LTENASMessageOutgoing in message:
-    	payload = message[Raw].load[0:None:None]
+    	header_size = 22 # FIXME obtain this value via Scapy 
+    	payload = message[Raw].load[0:message.inner_len-header_size:None]
     	result["raw"] = hexlify(payload)
     	result["nas_log_version"] = message.log_version
     	result["nas_version"] = message.nas_version
     	result["nas_major"] = message.nas_version_major
     	result["nas_minor"] = message.nas_version_minor
-    	result["nas_protocol"] = message.nas_protocol
-    	result["nas_direction"] = message.nas_direction
     	result["type"] = "LTE-NAS-Outgoing"
-    	#m,e = NAS.parse_NAS_MO(payload)
-    	#print m
-
+    	m,e = NAS.parse_NAS_MO(payload)
+    	if m:
+    		result["message"] = str(m.show())
 
     else:
     	payload = message[DiagCommand].load
