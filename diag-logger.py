@@ -617,7 +617,7 @@ if QCDMFrame not in frame:
 def handle_diag_log_message(message,timestamp):
 
     result = {"timestamp" : timestamp}
-    result = {"diag_length" : message.inner_len}
+    result["diag_length"] = message.inner_len
 
     if LTEMIBMessage in message:
     	result["pci"] = message.mib_pci
