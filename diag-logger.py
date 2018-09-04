@@ -618,6 +618,7 @@ def handle_diag_log_message(message,timestamp):
 
     result = {"timestamp" : timestamp}
     result["diag_length"] = message.inner_len
+    result["time"] = time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime())
 
     if LTEMIBMessage in message:
     	result["pci"] = message.mib_pci
@@ -711,5 +712,6 @@ while True:
                 handle_diag_log_message(frame,timestamp)
         else:
             result = {"timestamp" : timestamp}
+	    result["time"] = time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime())
             result["raw_frame"] = hexlify(frame)
             print_output(result)
