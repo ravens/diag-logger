@@ -588,8 +588,8 @@ print_output({"timestamp" : time.time() , "type":"debug", "message" : "Diag-Logg
 
 try:
 	## here adapt the vendor and product ID to your device
-	#dev = QCDMDevice(vid="1004", pid="61f1", iface=2) # Nexus 5
-	dev = QCDMDevice(vid="05c6", pid="903d", iface=0) # Nexus 5x
+	dev = QCDMDevice(vid="1004", pid="61f1", iface=2) # Nexus 5
+	#dev = QCDMDevice(vid="05c6", pid="903d", iface=0) # Nexus 5x
 
 except USBException as e:
     print "Error : Target USB device not found !"
@@ -680,6 +680,7 @@ def handle_diag_log_message(message,timestamp):
         result["raw"] = hexlify(payload)
 
     elif LTENASMessageOutgoing in message:
+    	original_payload =  message[Raw].load
     	header_size = 22 # FIXME obtain this value via Scapy 
     	payload = message[Raw].load[0:message.inner_len-header_size:None]
     	result["raw"] = hexlify(payload)
@@ -701,17 +702,35 @@ def handle_diag_log_message(message,timestamp):
     print_output(result)
       
 
-
 while True:
-    frame = dev.receive_response()
-    if QCDMFrame in frame:
-        timestamp = time.time()        
+    
+    data = dev.receive()
 
-        if frame.code == CommandCodes["LOG"]:
-            if DiagCommand in frame:
-                handle_diag_log_message(frame,timestamp)
-        else:
-            result = {"timestamp" : timestamp}
-	    result["time"] = time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime())
-            result["raw_frame"] = hexlify(frame)
-            print_output(result)
+    timestamp = time.time()
+    
+    while len(data) > 0 and data[-1] != "\x7e":
+      d = dev.receive()
+      if len(d) == 0:
+         break
+      data += d
+
+    # data might contains concat'd frames
+    raw_frames = bytearray(data)
+
+    current = bytearray()
+
+    for byte in raw_frames:
+        current.append(byte)
+        if byte == 0x7E:
+          frame = QCDMFrame(current)
+          if frame.code == CommandCodes["LOG"]:
+             if DiagCommand in frame:
+                 handle_diag_log_message(frame,timestamp)
+             else:
+                 result = {"timestamp" : timestamp}
+                 result["time"] = time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime())
+                 result["raw_frame"] = hexlify(frame)
+                 print_output(result)
+
+          current = bytearray()
+
