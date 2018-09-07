@@ -427,6 +427,9 @@ MsgProtocol = {
     "LTE-MIB-MESSAGE": int("0xb0c1",0),
     "LTE-SERVING-CELL-INFO": int("0xb0c2",0),
     "LTE-NAS-OUTGOING-MESSAGE": int("0xb0ed",0),
+    "LTE-NAS-INCOMING-MESSAGE": int("0xb0eb",0),
+    "LTE-NAS-ESM-OUTGOING-MESSAGE": int("0xb0ec",0),
+    "LTE-NAS-ESM-INCOMING-MESSAGE": int("0xb0ea",0),
 }
 
 class DiagCommand(Packet):
@@ -510,6 +513,39 @@ class LTENASMessageOutgoing(Packet):
     ]
 
 bind_layers(DiagCommand,LTENASMessageOutgoing, msg_protocol=MsgProtocol["LTE-NAS-OUTGOING-MESSAGE"])
+
+class LTENASMessageIncoming(Packet):
+    name = "LTE-NAS-Incoming"
+    fields_desc = [
+        ByteField("log_version",0),
+        ByteField("nas_version",0),
+        ByteField("nas_version_major",0),
+        ByteField("nas_version_minor",0),
+    ]
+
+bind_layers(DiagCommand,LTENASMessageIncoming, msg_protocol=MsgProtocol["LTE-NAS-INCOMING-MESSAGE"])
+
+class LTENASESMMessageOutgoing(Packet):
+    name = "LTE-NAS-ESM-Outgoing"
+    fields_desc = [
+        ByteField("log_version",0),
+        ByteField("nas_version",0),
+        ByteField("nas_version_major",0),
+        ByteField("nas_version_minor",0),
+    ]
+
+bind_layers(DiagCommand,LTENASESMMessageOutgoing, msg_protocol=MsgProtocol["LTE-NAS-ESM-OUTGOING-MESSAGE"])
+
+class LTENASESMMessageIncoming(Packet):
+    name = "LTE-NAS-ESM-Incoming"
+    fields_desc = [
+        ByteField("log_version",0),
+        ByteField("nas_version",0),
+        ByteField("nas_version_major",0),
+        ByteField("nas_version_minor",0),
+    ]
+
+bind_layers(DiagCommand,LTENASESMMessageIncoming, msg_protocol=MsgProtocol["LTE-NAS-ESM-INCOMING-MESSAGE"])
 
 class QCDMDevice(BulkPipe):
 
@@ -679,7 +715,7 @@ def handle_diag_log_message(message,timestamp):
             
         result["raw"] = hexlify(payload)
 
-    elif LTENASMessageOutgoing in message:
+    elif (LTENASMessageOutgoing in message) or (LTENASESMMessageOutgoing in message) or (LTENASMessageIncoming in message) or (LTENASESMMessageIncoming in message):
     	original_payload =  message[Raw].load
     	header_size = 22 # FIXME obtain this value via Scapy 
     	payload = message[Raw].load[0:message.inner_len-header_size:None]
@@ -688,8 +724,21 @@ def handle_diag_log_message(message,timestamp):
     	result["nas_version"] = message.nas_version
     	result["nas_major"] = message.nas_version_major
     	result["nas_minor"] = message.nas_version_minor
-    	result["type"] = "LTE-NAS-Outgoing"
-    	m,e = NAS.parse_NAS_MO(payload)
+
+    	if (LTENASMessageOutgoing in message):
+    		result["type"] = "LTE-NAS-Outgoing"
+    		NASfunction = NAS.parse_NAS_MO
+    	if (LTENASESMMessageOutgoing in message):
+    		result["type"] = "LTE-NAS-ESM-Outgoing"
+    		NASfunction = NAS.parse_NAS_MO
+    	if (LTENASMessageIncoming in message):
+    		result["type"] = "LTE-NAS-Incoming"
+    		NASfunction = NAS.parse_NAS_MT
+    	if (LTENASESMMessageIncoming in message):
+    		result["type"] = "LTE-NAS-ESM-Incoming"
+    		NASfunction = NAS.parse_NAS_MT
+    	m,e = NASfunction(payload)
+    	
     	if m:
     		result["message"] = str(m.show())
 
