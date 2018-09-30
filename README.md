@@ -17,7 +17,7 @@ Some ideas/todos :
 * [diag-parser](https://github.com/moiji-mobile/diag-parser) : an opensource project focused on reading data from a QC embedded modem and converting 2G,3G and LTE radio messages to GSMTAP format to make them parseable by Wireshark.
 * [DiagLibrary](https://github.com/sanjaywave/DiagLibrary) : a JNI library that implement a DIAG protocol parser under C code to be used under Android or Linux.
 * [USB-device-fuzzing](https://github.com/ollseg/usb-device-fuzzing) : an opensource, simple USB fuzzer using pyusb and scapy to implement the DIAG protocol.
-* [Pycrate](https://github.com/ANSSI-FR/pycrate/) : the successor of the libmich library that is used to encode and decode data structures, including ASN.1 used in cellular protocol.
+* [Pycrate](https://github.com/P1sec/pycrate) : the successor of the libmich library that is used to encode and decode data structures, including ASN.1 used in cellular protocol.
 
 ## hardware
 
@@ -50,7 +50,7 @@ The script is requiring a couple of python dependencies. Typically :
 pip install pyusb
 pip install scapy
 git clone https://github.com/mitshell/CryptoMobile && cd CryptoMobile && python setup.py install
-git clone https://github.com/ANSSI-FR/pycrate.git && cd pycrate && python setup.py install
+git clone https://github.com/P1sec/pycrate && cd pycrate && python setup.py install
 ```
 
 I am using pycrate to parse ASN1 frames, and scapy to decode the packets from the usb bus (exactly like the USB fuzzing project mentionned before).
