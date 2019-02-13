@@ -10,6 +10,8 @@ Some ideas/todos :
 * fix concatenated messages parsing by check the length advertized in the ota header. At the moment only the first one is parsed.   
 * dump the binary into a PCAP using DLT like the [srsLTE](https://github.com/srsLTE/srsLTE/blob/4762483396fdaff86b16988a0e2527334fc57136/lib/include/srslte/common/pcap.h) folks, or use GSMTAP like diag-parser.
 
+[13/02/2019] If you look for a more mature project [Scat](https://github.com/fgsect/scat) is probably what you should look for.. 
+
 ## related projects
 
 * [Osmocom wiki](https://osmocom.org/projects/quectel-modems/wiki/Diag) : a wiki page describing the protocol. 
@@ -18,6 +20,7 @@ Some ideas/todos :
 * [DiagLibrary](https://github.com/sanjaywave/DiagLibrary) : a JNI library that implement a DIAG protocol parser under C code to be used under Android or Linux.
 * [USB-device-fuzzing](https://github.com/ollseg/usb-device-fuzzing) : an opensource, simple USB fuzzer using pyusb and scapy to implement the DIAG protocol.
 * [Pycrate](https://github.com/P1sec/pycrate) : the successor of the libmich library that is used to encode and decode data structures, including ASN.1 used in cellular protocol.
+* [Scat](https://github.com/fgsect/scat) : Same approach ad this project, but extending support to Samsung baseband and with better code (parsing using Osmocom libraries). An output toward gsmtap over UDP is buildin.
 
 ## hardware
 
