@@ -1,0 +1,8 @@
+version: '2.0'
+
+services:
+ diaglogger:
+  build: ./
+  privileged: true
+  devices:
+    - /dev/bus/usb
